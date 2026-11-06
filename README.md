@@ -2,6 +2,17 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 
+## 写在前面
+该集成frok自https://github.com/kiwiwiki007/ha-hatachi
+由于我需要在ha中控制地暖，而原集成不支持，在ai的帮助下添加了地暖的控制功能，自行试用通过。
+![alt text](picture.png)
+
+## 使用建议
+由于日立智家不支持同时登录，该插件会导致app掉线。建议注册两个日立智家账号，并拉入同一家庭。ha和手机端分别登录。
+
+
+# 原描述
+
 Home Assistant 自定义集成，用于控制**海信日立 (Hisense Hitachi) 中央空调**，通过海信日立云 API 实现远程控制。
 
 支持标准空调、特殊机型以及**新风系统**。
