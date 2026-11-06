@@ -88,7 +88,7 @@ class HitachiApi:
         if data.get("code") == CODE_OK:
             return data
         _LOGGER.error("get_home_detail failed: %s", data)
-        return None
+        return data  # return raw response so coordinator can detect 401
 
     def extract_devices(self, home_data: dict, home_id: str) -> list[dict]:
         """Extract indoor units from home detail response.
@@ -138,6 +138,50 @@ class HitachiApi:
 
         return devices
 
+    # ---- Wired controllers (room panels) ----
+
+    def extract_panel_devices(self, home_data: dict) -> list[dict]:
+        """Extract wired controllers, paired to indoor units by iuNo."""
+        home_detail = home_data.get("data", {}).get("homeDetail", {})
+        result = []
+        for xkq in home_detail.get("xkqList", []):
+            code = xkq.get("xkqCode")
+            if not code:
+                continue
+            iu_nos = [
+                str(iu.get("iuNo", "")).zfill(2)
+                for iu in xkq.get("iuList", [])
+                if iu.get("iuNo") not in (None, "")
+            ]
+            result.append({
+                "xkqCode": code,
+                "deviceType": xkq.get("type", "F"),
+                "xkqType": xkq.get("xkqType", "0"),
+                "iuNos": iu_nos,
+            })
+        return result
+
+    async def get_panel_status(
+        self, home_id: str, panels: list[dict], hass
+    ) -> dict | None:
+        """Read xkqStatusList; 地暖 mode (xkq21Mode) lives on this channel."""
+        body = {
+            "homeId": int(home_id),
+            "noNetTip": True,
+            "iuIdListGjy": [],
+            "boxList": [],
+            "xkqList": [
+                {"xkqCode": panel["xkqCode"], "timestamp": 0}
+                for panel in panels
+            ],
+            "xkqListGjy": [],
+            "iuIdList": [],
+        }
+        url = f"{API_DOMAIN}/{API_STATUS}/{home_id}/status"
+        async with get_async_client(hass) as client:
+            resp = await client.post(url, json=body, headers=self._headers())
+            return resp.json()
+
     # ---- Status ----
 
     async def get_status(self, home_id: str, devices: list[dict], hass) -> dict | None:
@@ -185,7 +229,7 @@ class HitachiApi:
         if data.get("code") == CODE_OK:
             return data
         _LOGGER.error("get_status failed: %s", data)
-        return None
+        return data  # return raw response so coordinator can detect 401
 
     # ---- Control ----
 
@@ -251,6 +295,44 @@ class HitachiApi:
         _LOGGER.debug("control response code=%s", data.get("code"))
         # Wait a moment for the command to take effect
         await asyncio.sleep(3)
+        return data
+
+    async def control_panel_mode(
+        self, home_id: str, panel: dict, cmd_dict: dict, hass
+    ) -> dict | None:
+        """Set the wired-controller mode (e.g. 地暖) via xkqCtrlList.
+
+        Verified request: ctrlType "HA420", ctrlList empty, and one
+        xkqCtrlList item {xkqCode, deviceType, xkqType, ctrlJson}.
+        Unlike the indoor-unit channel, mode=11 is valid here.
+        """
+        body = {
+            "ctrlList": [],
+            "xkqCtrlList": [
+                {
+                    "xkqCode": panel["xkqCode"],
+                    "deviceType": panel.get("deviceType", "F"),
+                    "xkqType": panel.get("xkqType", "0"),
+                    "ctrlJson": cmd_dict,
+                }
+            ],
+            "homeId": int(home_id),
+            "ctrlType": "HA420",
+            "regionCode": "0",
+            "positionLat": 4.9e-324,
+            "positionLng": 4.9e-324,
+            "position1": "  ",
+            "position2": "",
+            "positionCity": "",
+        }
+        url = f"{API_DOMAIN}/{API_CONTROL}"
+        _LOGGER.debug(
+            "panel control %s ctrlJson=%s", panel["xkqCode"], cmd_dict
+        )
+        async with get_async_client(hass) as client:
+            resp = await client.post(url, json=body, headers=self._headers())
+            data = resp.json()
+        _LOGGER.debug("panel control response code=%s", data.get("code"))
         return data
 
     # ---- Token management ----
