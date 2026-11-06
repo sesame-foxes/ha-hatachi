@@ -13,5 +13,19 @@
     "error": {
       "invalid_login": "登录失败，请检查手机号和密码"
     }
+  },
+  "entity": {
+    "climate": {
+      "hitachi_climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "无预设",
+              "floor_heat": "地暖"
+            }
+          }
+        }
+      }
+    }
   }
 }

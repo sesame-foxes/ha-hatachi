@@ -13,5 +13,19 @@
     "error": {
       "invalid_login": "Login failed. Please check your phone number and password."
     }
+  },
+  "entity": {
+    "climate": {
+      "hitachi_climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "No preset",
+              "floor_heat": "Floor heating"
+            }
+          }
+        }
+      }
+    }
   }
 }
